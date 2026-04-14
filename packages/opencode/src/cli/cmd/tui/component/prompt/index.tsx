@@ -205,7 +205,8 @@ export function Prompt(props: PromptProps) {
         local.agent.set(msg.agent)
         if (msg.model) {
           local.model.set(msg.model)
-          local.model.variant.set(msg.model.variant)
+          // Disabled: variant restore from message history breaks cache alignment
+          // local.model.variant.set(msg.model.variant)
         }
       }
     }

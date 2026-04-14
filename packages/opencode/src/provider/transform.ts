@@ -193,9 +193,14 @@ export namespace ProviderTransform {
     const system = msgs.filter((msg) => msg.role === "system").slice(0, 2)
     const final = msgs.filter((msg) => msg.role !== "system").slice(-2)
 
+    const supports1h = model.api.id.includes("opus-4-6") || model.api.id.includes("opus-4.6")
+    const anthropicCache = supports1h
+      ? { type: "ephemeral" as const, ttl: "1h" as const }
+      : { type: "ephemeral" as const }
+
     const providerOptions = {
       anthropic: {
-        cacheControl: { type: "ephemeral" },
+        cacheControl: anthropicCache,
       },
       openrouter: {
         cacheControl: { type: "ephemeral" },

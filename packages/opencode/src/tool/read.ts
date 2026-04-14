@@ -198,9 +198,10 @@ export const ReadTool = Tool.define(
 
       yield* warm(filepath, ctx.sessionID)
 
-      if (loaded.length > 0) {
-        output += `\n\n<system-reminder>\n${loaded.map((item) => item.content).join("\n\n")}\n</system-reminder>`
-      }
+      // Disabled: system-reminder injection from AGENTS.md pollutes tool output and session exports
+      // if (loaded.length > 0) {
+      //   output += `\n\n<system-reminder>\n${loaded.map((item) => item.content).join("\n\n")}\n</system-reminder>`
+      // }
 
       return {
         title,

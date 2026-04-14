@@ -1445,11 +1445,74 @@ export namespace Provider {
               }
             }
 
+            const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+            log.debug("fetch request", {
+              url,
+              method: opts.method,
+              headers: opts.headers,
+            })
+            try {
+              log.debug("BODY START\n" + JSON.stringify(JSON.parse(opts.body as string), null, 2) + "\nBODY END")
+            } catch {}
+
             const res = await fetchFn(input, {
               ...opts,
               // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
               timeout: false,
             })
+
+            const hdrs = Object.fromEntries(res.headers.entries())
+            log.debug("fetch response", { url, status: res.status, headers: hdrs })
+            const rlStatus = hdrs["anthropic-ratelimit-unified-status"]
+            if (rlStatus && rlStatus !== "allowed") {
+              log.info("rate limit", {
+                status: rlStatus,
+                "7d": hdrs["anthropic-ratelimit-unified-7d-utilization"],
+                "5h": hdrs["anthropic-ratelimit-unified-5h-utilization"],
+                overage: hdrs["anthropic-ratelimit-unified-overage-status"],
+              })
+            }
+            if (!res.ok) {
+              const body = await res
+                .clone()
+                .text()
+                .catch(() => "<unreadable>")
+              log.debug("RESPONSE ERROR START\n" + body + "\nRESPONSE ERROR END")
+            }
+
+            if (res.ok && res.body) {
+              const [a, b] = res.body.tee()
+              ;(async () => {
+                const reader = b.getReader()
+                const decoder = new TextDecoder()
+                let buf = ""
+                try {
+                  while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+                    buf += decoder.decode(value, { stream: true })
+                    const lines = buf.split("\n")
+                    buf = lines.pop() ?? ""
+                    for (const line of lines) {
+                      if (!line.startsWith("data:")) continue
+                      const data = line.slice(5).trim()
+                      if (!data || data === "[DONE]") continue
+                      if (data.includes("stop_reason") || data.includes('"error"') || data.includes('"usage"')) {
+                        try {
+                          const obj = JSON.parse(data)
+                          log.debug("stream event", obj)
+                        } catch {
+                          log.debug("stream event (raw)", { data })
+                        }
+                      }
+                    }
+                  }
+                } catch {}
+              })()
+              const teed = new Response(a, { status: res.status, statusText: res.statusText, headers: res.headers })
+              if (!chunkAbortCtl) return teed
+              return wrapSSE(teed, chunkTimeout, chunkAbortCtl)
+            }
 
             if (!chunkAbortCtl) return res
             return wrapSSE(res, chunkTimeout, chunkAbortCtl)

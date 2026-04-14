@@ -57,7 +57,6 @@ export namespace SystemPrompt {
               `  Workspace root folder: ${Instance.worktree}`,
               `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
               `  Platform: ${process.platform}`,
-              `  Today's date: ${new Date().toDateString()}`,
               `</env>`,
             ].join("\n"),
           ]
